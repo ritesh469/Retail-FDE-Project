@@ -75,8 +75,8 @@ def main() -> None:
     print(f".env               : {g1} generated, {k1} kept")
     print(f"frontend/.env.local: {g2} generated, {k2} kept")
     missing = [k for k in API_KEYS
-               if not any(l.startswith(f"{k}=") and l.strip() != f"{k}="
-                          for l in env.read_text().splitlines())]
+               if not any(line.startswith(f"{k}=") and line.strip() != f"{k}="
+                          for line in env.read_text().splitlines())]
     if missing:
         print("\nStill blank - set these by hand in .env before `make up`:")
         for k in missing:

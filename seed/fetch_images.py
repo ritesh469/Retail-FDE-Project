@@ -183,9 +183,11 @@ def main() -> None:
     failed = []
     for sku in targets:
         if sku not in QUERIES:
-            print(f"{sku}  unknown SKU"); continue
+            print(f"{sku}  unknown SKU")
+            continue
         if (OUT / f"{sku}.jpg").exists() and not force and not args:
-            print(f"{sku}  kept"); continue
+            print(f"{sku}  kept")
+            continue
         status = fetch_one(sku)
         print(f"{sku}  {status}", flush=True)
         if status == "FAILED":

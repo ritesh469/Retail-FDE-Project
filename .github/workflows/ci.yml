@@ -1,0 +1,70 @@
+# Static checks on every push / PR - the same checks as `make lint`, plus
+# compose validation and image builds. The live-system checks (`make smoke`,
+# the scenario walkthroughs) need the full stack and paid API keys, so they run
+# locally, never in CI (CLAUDE.md: nothing here is mocked to make it CI-able).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker run --rm -v "$PWD:/src" -w /src ghcr.io/astral-sh/ruff:0.16.9 check .
+
+  opa-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: open-policy-agent/setup-opa@v2
+        with:
+          version: 1.20.1 # same as the opa service in docker-compose.yml
+      - run: opa test infra/opa -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # scan the full history, not just the tip
+      - run: >
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1
+          git . --config .gitleaks.toml --redact --no-banner
+
+  compose-and-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: docker compose config validates
+        run: |
+          cp .env.example .env
+          docker compose --profile observability --profile load config -q
+      # The worker image (CPU torch + CLIP, ~2.4 GB) is left to `make up`.
+      - run: docker build -t rg-backend backend
+      - run: docker build -t rg-mcp-server mcp-server

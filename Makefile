@@ -43,6 +43,15 @@ opa-test: ## run the OPA policy unit tests (infra/opa/*_test.rego)
 smoke: ## run every verify script
 	python scripts/smoke.py
 
+# Static checks - no running stack needed; CI runs exactly these. Tools run from
+# pinned images so the host needs only Docker + the frontend's node_modules.
+# MSYS_NO_PATHCONV stops Git Bash on Windows from rewriting container paths.
+lint: ## lint + type-check + OPA tests + secret scan (same checks as CI)
+	MSYS_NO_PATHCONV=1 docker run --rm -v "$(CURDIR):/src" -w /src ghcr.io/astral-sh/ruff:0.16.9 check .
+	MSYS_NO_PATHCONV=1 docker run --rm -v "$(CURDIR)/infra/opa:/policies:ro" openpolicyagent/opa:1.20.1 test /policies
+	cd frontend && npm run lint && npx tsc --noEmit
+	MSYS_NO_PATHCONV=1 docker run --rm -v "$(CURDIR):/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 git . --config .gitleaks.toml --redact --no-banner
+
 dataset: ## generate the synthetic ML dataset
 	$(COMPOSE) run --rm worker python -m ml.generate_dataset
 
@@ -80,4 +89,4 @@ backup: ## pg_dump + qdrant snapshot + minio mirror
 restore: ## restore from backups/
 	@bash scripts/restore.sh
 
-.PHONY: help preflight up up-lite down nuke logs migrate makemigration seed vault-init opa-test smoke dataset train loadtest backup restore reembed-policy sync-prompts replay reprocess mcp-setup bifrost-setup m4-setup
+.PHONY: help preflight up up-lite down nuke logs migrate makemigration seed vault-init opa-test smoke lint dataset train loadtest backup restore reembed-policy sync-prompts replay reprocess mcp-setup bifrost-setup m4-setup

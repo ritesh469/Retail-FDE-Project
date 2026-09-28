@@ -73,7 +73,8 @@ def main() -> None:
     c.ok(row and row["status"] in ("approved", "escalated"),
          f"pipeline finished: status={row['status'] if row else None}")
     if not row or not row["graph_run_id"]:
-        c.done(); return
+        c.done()
+        return
     g = row["graph_run_id"]
 
     runs = qall(

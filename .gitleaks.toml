@@ -1,0 +1,19 @@
+# Secret scanning (gitleaks). Run via `make lint`; CI and pre-commit run the same.
+# Default rules, plus a narrow allowlist for the known local-dev fixtures below.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """Fixed local-dev Keycloak client secrets (web app + one service
+account per agent). They only authenticate against the local Keycloak container,
+whose port is bound to 127.0.0.1. Templating them per install is tracked in
+docs/SECURITY.md."""
+paths = [
+  '''^infra/keycloak/realm-export\.json$''',
+  '''^frontend/\.env\.local\.example$''',
+]
+
+[[allowlists]]
+description = """Early commit that briefly tracked a generated frontend/.env.local
+(local-only dev values, since untracked + git-ignored). History-only finding."""
+commits = ["d62dc3d144e497e6d6dc921082d9ed03f04d1b1d"]

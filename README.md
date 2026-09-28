@@ -115,7 +115,8 @@ the chain and fails on any tamper.
 | Local ML | scikit-learn risk model; open-clip CLIP; an AI-image detector — all CPU. The trained model's card is written to `ml/registry/<version>/MODEL_CARD.md` by `make train` |
 | Observability | **Langfuse v3** (self-hosted, shares Postgres/Redis/MinIO, + ClickHouse) — traces every agent call *and* holds the versioned, trace-linked agent prompts |
 | Identity | Keycloak — `customer` / `reviewer` / `admin`, plus one service account per agent |
-| Storage / email / secrets | MinIO / MailHog / **HashiCorp Vault** (every runtime secret) |
+| Storage / email / secrets | MinIO (community-fork images, ADR-0011) / MailHog / **HashiCorp Vault** (every runtime secret) |
+| Quality gates | `make lint` = ruff + OPA unit tests + ESLint + `tsc` + gitleaks; the same checks run in GitHub Actions (`.github/workflows/ci.yml`) and as pre-commit hooks |
 
 ### How a return flows through it
 
@@ -172,16 +173,18 @@ Pick your OS.
 **Windows 11**
 
 ```powershell
-# run in PowerShell; installs all four via winget
+# run in PowerShell; installs all four via winget, plus GNU make
 winget install --id Git.Git -e
 winget install --id Docker.DockerDesktop -e
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Python.Python.3.12 -e
+winget install --id ezwinports.make -e
 ```
 
 Then **launch Docker Desktop once** and wait for it to say "Engine running".
-Use **Git Bash** (installed with Git) for every `make` command below — `make`
-ships with it.
+Use **Git Bash** (installed with Git) for every `make` command below. Git Bash
+does **not** include `make` — that's what the last `winget` line is for; reopen
+Git Bash after installing it so `make --version` works.
 
 **macOS**
 
@@ -215,12 +218,14 @@ python --version              # 3.11+ on the host — only runs the setup/verify
 ### Step 1 — get the code
 
 ```bash
-git clone https://github.com/<your-user>/returnguard.git
-cd returnguard
+git clone https://github.com/ritesh469/Retail-FDE-Project.git
+cd Retail-FDE-Project
 ```
 
-Everything from here runs **from this `returnguard/` folder** unless a step says
-"in the `frontend/` folder".
+Everything from here runs **from this `Retail-FDE-Project/` folder** unless a
+step says "in the `frontend/` folder". Keep it outside OneDrive/Dropbox-synced
+folders: sync clients fight Docker bind mounts and `node_modules`, and would
+upload your `.env` secrets.
 
 ### Step 2 — install the host-side Python packages
 
@@ -282,9 +287,14 @@ is in use, stop whatever owns it (common: a local Postgres on 5432) and re-run.
 make migrate
 ```
 
-Runs the Alembic migrations inside the backend container
+Runs the Alembic migrations inside the backend container (this project never uses
+`create_all` — every table is a real, ordered migration).
 
 **make migrate builds the actual tables inside the database.**
+
+*Worked if:* it exits with no traceback. Check the schema is at the latest
+migration: `docker compose exec -T postgres psql -U returnguard -d returnguard -tAc "select version_num from alembic_version"`
+prints `c3d4e5f6a7b8`.
 
 ### Step 7 — load the seed data
 
@@ -307,6 +317,8 @@ return-policy documents the Policy agent will search.
 
 **The return policy documents — the actual written rules (30-day window, high-value threshold, etc.) that the AI agents will read later to decide if a return is allowed**
 
+*Worked if:* it prints `seeded 29 products, 4 policy docs (v1)`.
+
 
 ### Step 8 — one-time AI setup
 
@@ -321,7 +333,13 @@ make m4-setup
 3. Loads the return-policy text into the AI's searchable memory (so it can look up rules).
 4. Tells the security gateway which tools each AI agent is allowed to use.
 5. Tells the AI gateway which models each agent is allowed to call.
-6. Pushes the agents' instructions (prompts) to the tracing dashboar
+6. Pushes the agents' instructions (prompts) to the tracing dashboard (Langfuse).
+
+*Worked if:* it prints `pushed -> lf v1` for each of the 7 agent prompts, then
+`sync_prompts: 7 prompt(s) pushed`. Step 3 (the policy embedding) is the first
+real OpenAI call — if it fails with `insufficient_quota`, your OpenAI account
+has no credit: add some at platform.openai.com → Billing, then re-run
+`make m4-setup`.
 
 ### Step 9 — start the shop + dashboard
 
@@ -339,7 +357,7 @@ loads. Leave this terminal running.
 
 ### Step 10 — prove it all works
 
-Open a **second terminal**, back in the `returnguard/` folder:
+Open a **second terminal**, back in the `Retail-FDE-Project/` folder:
 
 ```bash
 python scripts/smoke.py
@@ -408,6 +426,7 @@ same list. `a="…"` passes arguments to a target; `m="…"` passes a message.
 |---|---|
 | `make smoke` | Run every `scripts/verify_*.py` against the live system, in sequence. The full automated proof. ~10 min. |
 | `make opa-test` | Run the OPA policy unit tests (`infra/opa/*_test.rego`). |
+| `make lint` | Static checks, no stack needed: ruff, the OPA unit tests, ESLint, `tsc --noEmit`, and a gitleaks secret scan of the full git history. Exactly what CI runs on every push. |
 | `python scripts/verify_m1.py` … `verify_m6.py` | Individual milestone checks — stack health, shop+auth, single-agent pipe, full agent graph, reviewer workflow, docs. Run one directly instead of the whole `smoke`. |
 | `python scripts/verify_audit_chain.py` | Re-walk the hash-chained `audit_log` and fail on any tamper. |
 | `python scripts/verify_security.py` | Fire prompt-injection payloads with autonomy forced on; assert no privilege escalation, no auto-approve, a real decision row, a truthful audit entry. |
@@ -526,6 +545,11 @@ snapshot + MinIO mirror). `bash scripts/restore.sh backups/<timestamp>` restores
   hash-chained; `scripts/verify_audit_chain.py` re-walks it.
 - **Secrets** — Vault only; `structlog` redacts API-key/bearer/DB-URL shapes and
   any credential-looking log key.
+- **Localhost-only ports** — every published port binds to `127.0.0.1`, so
+  Postgres, Redis, Vault, MinIO, etc. are unreachable from the rest of your
+  network (ADR-0012).
+- **Secret scanning** — gitleaks runs in `make lint`, CI, and pre-commit;
+  `.gitleaks.toml` allowlists only the fixed local-dev Keycloak client secrets.
 - **Local-only scope** — dev-mode Vault/Keycloak, plain HTTP on localhost, no
   TLS. Not a production posture.
 
@@ -565,8 +589,75 @@ alerts), then the index at
 
 ---
 
+## Troubleshooting (things that actually went wrong building this)
+
+- **Postgres 18 won't start, "unused mount/volume".** pg18 changed the data-dir
+  convention — the volume mounts at `/var/lib/postgresql`, not `/…/data`. Already
+  fixed in `docker-compose.yml`; if you have an old volume, `make nuke`.
+- **`arq` dependency conflict.** `arq` requires `redis<6`; the worker and backend
+  pin `redis==5.3.1`.
+- **Keycloak tokens have no `sub` claim.** Keycloak 26 only includes `sub` when
+  the `basic` client scope is assigned — it's in the realm export.
+- **MinIO presigned URL returns XML / SignatureDoesNotMatch.** The presign must be
+  computed against the browser-reachable host (`localhost:9000`), not the docker
+  hostname, or the SigV4 signature won't match. `app/services/storage.py` uses a
+  separate client for presigning.
+- **Bifrost: "provider groq not found".** Bifrost v2 reads `config.json` from
+  `/app/data/`, not a `BIFROST_CONFIG_PATH`. And Groq's 2026 catalog dropped the
+  `llama-3.x` ids — the model roles now map to `openai/gpt-oss-*` (see
+  `worker/pipeline/models_config.py`).
+- **ContextForge "Unable to connect to gateway" (502).** The MCP SDK v2 streamable
+  server rejects unknown `Host` headers; `mcp-server/server.py` passes
+  `TransportSecuritySettings(allowed_hosts=[...])`.
+- **Worker: "at least one function must be registered" even though there is one.**
+  `pip install .` had baked a stale copy of the package into site-packages that
+  shadowed the bind-mounted source — the Dockerfiles use `pip install -e .`.
+- **First pipeline run is slow (2–4 min).** CLIP *and* the AI-image detector
+  (~1.5 GB) download on the first return that reaches the Image agent. They land
+  in the `hf_cache` Docker volume, so this happens **once** — it survives
+  `docker compose restart` / `--force-recreate`, and only `make nuke` clears it.
+  `verify_m3` / `verify_m4` in the first `make smoke` after `make nuke` absorb
+  it; every run after is fast.
+- **`worker` container shows `Exited (1)` right after `make up`.** Expected on a
+  fresh stack — `make up` starts the worker before `make migrate`, so its
+  startup query hits a table that doesn't exist yet. It's set to
+  `restart: unless-stopped` and recovers on its own once `make migrate` runs;
+  the crash log during that window is harmless.
+- **Agents' tool calls fail with "no ContextForge virtual server".** `make m4-setup`
+  wasn't run (it writes the per-agent server IDs into Vault and restarts the
+  worker to pick them up). Re-run `make m4-setup`, or just
+  `python scripts/mcp_setup.py && docker compose restart worker`.
+- **Silent version of the above — no error at all, decisions just look thin.**
+  If you skip `make m4-setup` and go straight from `make seed` to submitting
+  returns, the pipeline doesn't crash — `_tool()` in `worker/pipeline/nodes/agents.py`
+  catches the failure per call and returns `{}`, so every node keeps running on
+  empty tool results and the Behavior agent quietly uses `behavior_risk:heuristic-fallback`
+  instead of a trained model. Nothing in the UI flags this. Check it directly:
+  `select payload->>'tool', payload->>'ok' from agent_run_events where kind='tool_call';`
+  — if every row is `ok=false`, run `make m4-setup`.
+- **`make up` says a port is already in use.** Something else on the host owns
+  5432 / 3000 / 8000 / 8081 / … — stop it, or edit the `ports:` in
+  `docker-compose.yml`.
+- **`make up`: "pull access denied for minio/minio, repository does not exist".**
+  Upstream MinIO withdrew its images; the compose file now uses the pinned
+  `pgsty/minio` / `pgsty/mc` community-fork images (ADR-0011). One failed pull
+  cancels every other pull in the same `make up` — fix it, then re-run.
+- **`make up` on Windows: "The container name … is already in use".** A Docker
+  Desktop race while creating many containers at once. Re-run `make up`; it
+  reuses what was already created.
+- **Port 8090 in use on Windows.** Some desktop apps' background helpers (seen:
+  Wondershare's `WsToastNotification.exe`) listen on 8090, which Bifrost needs.
+  Quit the helper, then re-run `make up`.
+- **`make m4-setup` fails at `reembed-policy` with `429 insufficient_quota`.**
+  The OpenAI key is valid but the account has no credit. Add credit at
+  platform.openai.com → Billing and re-run `make m4-setup`.
+
+---
+
 ## Contributing
 
+- Before committing: `make lint` (CI runs the same on every push). For the
+  fast subset on every commit: `python -m pip install pre-commit && pre-commit install`.
 - After editing an agent prompt: bump its `version:` header, then
   `make sync-prompts` (pushes the new version to Langfuse).
 - After changing the API shape: `cd frontend && npm run gen:api` (regenerates

@@ -65,7 +65,7 @@ async def security_headers(request, call_next):
 
 app.include_router(health.router)
 
-from app.routers import analytics, appeals, dashboard, orders, returns, shop, ws
+from app.routers import analytics, appeals, dashboard, orders, returns, shop, ws  # noqa: E402
 
 app.include_router(shop.router)
 app.include_router(orders.router)
