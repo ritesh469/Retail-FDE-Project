@@ -2,6 +2,8 @@
 
 **A real e-commerce return/refund process, run by a governed multi-agent AI system.**
 
+**Project page (screenshots, architecture, results):** https://returnguard-ritesh.vercel.app
+
 Most "AI agent" demos are a chatbot with a nice prompt. ReturnGuard is the
 opposite: one company, one real operational process — reviewing every
 return/refund request — handed to a system of AI agents that is **watched,
@@ -659,8 +661,9 @@ alerts), then the index at
 `showcase/` is a static, one-page overview of the project for people who won't run
 it locally: what it does, the agent pipeline, the guardrails, real screenshots of
 the running system, verification results, and credits. It is plain HTML/CSS with
-no build step and no backend, so it can be hosted for free (for example on Vercel:
-import this repo, set **Root Directory** to `showcase`, framework preset **Other**).
+no build step and no backend, so it is hosted for free on Vercel at
+https://returnguard-ritesh.vercel.app (deployed from `showcase/` with the Vercel CLI:
+`cd showcase && npx vercel deploy --prod`).
 The screenshots in `showcase/assets/` were captured from a live local run.
 
 ---
