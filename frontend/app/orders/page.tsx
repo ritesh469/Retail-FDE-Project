@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import type { Order } from "../lib/api";
+import { caseNo, money, shortDate } from "../lib/format";
 
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
@@ -15,26 +16,39 @@ export default async function OrdersPage() {
   }).then((r) => r.json());
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700 }}>My orders</h1>
-      {orders.length === 0 && <p className="muted">No orders yet.</p>}
-      {orders.map((o) => (
-        <Link
-          key={o.id}
-          href={`/orders/${o.id}`}
-          className="card"
-          style={{ padding: 14 }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>#{o.id.slice(0, 8)}</span>
-            <span>${o.total}</span>
-          </div>
-          <div className="muted" style={{ fontSize: 13 }}>
-            {new Date(o.placed_at).toLocaleString()} · {o.items.length} item(s)
-            · {o.status}
-          </div>
-        </Link>
-      ))}
-    </div>
+    <>
+      <div className="page-head">
+        <h1 className="display">My orders</h1>
+        <p>Open an order to start a return for any item in it.</p>
+      </div>
+      {orders.length === 0 ? (
+        <div className="empty">
+          <h2 className="display">No orders yet</h2>
+          <p className="muted">Orders you place will show up here.</p>
+          <Link href="/" className="btn">
+            Browse products
+          </Link>
+        </div>
+      ) : (
+        <div className="list">
+          {orders.map((o) => (
+            <Link key={o.id} href={`/orders/${o.id}`} className="list-row">
+              <div className="list-main">
+                <span className="list-title">
+                  {o.items.map((it) => it.name).join(", ")}
+                </span>
+                <span className="list-meta">
+                  <span className="mono">#{caseNo(o.id)}</span> ·{" "}
+                  {shortDate(o.placed_at)} ·{" "}
+                  {o.items.reduce((n, it) => n + it.qty, 0)} item(s)
+                </span>
+              </div>
+              <span className="badge">{o.status}</span>
+              <span className="amount">{money(o.total)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

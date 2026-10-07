@@ -1,49 +1,51 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "../lib/cart";
+import { money } from "../lib/format";
 import type { Product } from "../lib/api";
 
 export function ProductCard({ p }: { p: Product }) {
   const { add } = useCart();
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 1400);
+    return () => clearTimeout(t);
+  }, [added]);
+
+  const href = `/shop/product/${p.id}`;
   return (
-    <div
-      className="card"
-      style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}
-    >
-      <Link href={`/shop/product/${p.id}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={p.image_url}
-          alt={p.name}
-          style={{
-            width: "100%",
-            aspectRatio: "1",
-            objectFit: "cover",
-            borderRadius: 8,
-          }}
-        />
-      </Link>
-      <div style={{ fontWeight: 600 }}>{p.name}</div>
-      <div className="muted" style={{ fontSize: 13 }}>
-        {p.category}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
+    <article className="product-card">
+      <Link
+        href={href}
+        className="product-img"
+        tabIndex={-1}
+        aria-hidden="true"
       >
-        <strong>${p.price}</strong>
-        <button
-          className="btn"
-          onClick={() =>
-            add({ product_id: p.id, name: p.name, price: Number(p.price) })
-          }
-        >
-          Add
-        </button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={p.image_url} alt="" loading="lazy" />
+      </Link>
+      <div className="product-body">
+        <span className="eyebrow">{p.category}</span>
+        <Link href={href} className="product-name">
+          {p.name}
+        </Link>
+        <div className="product-foot">
+          <span className="price">{money(p.price)}</span>
+          <button
+            className={added ? "btn secondary" : "btn"}
+            onClick={() => {
+              add({ product_id: p.id, name: p.name, price: Number(p.price) });
+              setAdded(true);
+            }}
+            aria-live="polite"
+          >
+            {added ? "Added" : "Add to cart"}
+          </button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }

@@ -1,12 +1,27 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import type { ReturnRow } from "@/app/lib/api";
+import type { Order, ReturnRow } from "@/app/lib/api";
+import {
+  caseNo,
+  dateTime,
+  money,
+  reasonLabel,
+  returnStatus,
+} from "@/app/lib/format";
 import { AnswerInfoRequest } from "./AnswerInfoRequest";
+import { AutoRefresh } from "./AutoRefresh";
 import { FileAppeal } from "./FileAppeal";
 
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
-const STAGES = ["under review", "decided", "refunded"];
+/** Where the return is on its route: 0 submitted, 1 under review, 2 decided, 3 refunded. */
+function stageOf(r: ReturnRow): number {
+  if (r.refund_state === "refunded" || r.status === "refunded") return 3;
+  if (r.status === "approved" || r.status === "denied") return 2;
+  if (r.status === "pending") return 0;
+  return 1;
+}
 
 export default async function ReturnStatusPage({
   params,
@@ -28,77 +43,144 @@ export default async function ReturnStatusPage({
         cache: "no-store",
       }).then((res) => res.json()),
     ]);
+  const order: Order | null = await fetch(`${BACKEND}/orders/${r.order_id}`, {
+    headers: h,
+    cache: "no-store",
+  }).then((res) => (res.ok ? res.json() : null));
+  const item = order?.items.find((it) => it.id === r.order_item_id);
 
-  const stageIdx =
-    r.refund_state === "refunded"
-      ? 2
-      : ["approved", "denied"].includes(r.status)
-        ? 1
-        : 0;
+  const s = returnStatus(r.status, r.refund_state);
+  const stage = stageOf(r);
+  const decisionLabel =
+    r.status === "denied" ? "Declined" : stage >= 2 ? "Approved" : "Decision";
+  const track = ["Submitted", "Under review", decisionLabel, "Refunded"];
+  const finished = stage === 3 || r.status === "denied";
+  // poll quickly while the agents are working, slowly while waiting on a person or the refund
+  const refreshMs = ["pending", "in_review"].includes(r.status) ? 4000 : 15000;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700 }}>
-        Return #{r.id.slice(0, 8)}
-      </h1>
-
-      <div style={{ display: "flex", gap: 8 }}>
-        {STAGES.map((s, i) => (
-          <div
-            key={s}
-            className="card"
-            style={{
-              padding: "6px 12px",
-              opacity: i <= stageIdx ? 1 : 0.4,
-              borderColor: i === stageIdx ? "var(--accent)" : "var(--border)",
-            }}
-          >
-            {s}
-          </div>
-        ))}
-      </div>
+    <>
+      <nav className="crumbs" aria-label="Breadcrumb">
+        <Link href="/returns">My returns</Link>
+        <span aria-hidden="true">/</span>
+        <span className="mono">#{caseNo(r.id)}</span>
+      </nav>
 
       {infoReq?.question && (
-        <AnswerInfoRequest returnId={id} question={infoReq.question} />
+        <div style={{ marginBottom: "1.25rem" }}>
+          <AnswerInfoRequest returnId={id} question={infoReq.question} />
+        </div>
       )}
 
-      <div className="card" style={{ padding: 14 }}>
-        <div>
-          <strong>Status:</strong> {r.status}
-        </div>
-        <div>
-          <strong>Reason:</strong> {r.reason_code}
-          {r.reason_text ? ` — ${r.reason_text}` : ""}
-        </div>
-        <div>
-          <strong>Amount:</strong> ${r.amount}
-        </div>
-        {r.final_decision && (
-          <div>
-            <strong>Decision:</strong> {r.final_decision}
-          </div>
-        )}
-        {r.decision_reason && (
-          <div style={{ marginTop: 8 }}>
-            <strong>Explanation:</strong>
-            <p className="muted">{r.decision_reason}</p>
-          </div>
-        )}
-      </div>
+      <div className="split">
+        <div className="stack" style={{ gap: "1.25rem" }}>
+          <article className="slip" aria-label="Return slip">
+            <div className="slip-band">
+              <span className="display">RETURN</span>
+              <span className="mono" style={{ fontWeight: 700 }}>
+                #{caseNo(r.id)}
+              </span>
+            </div>
+            <div className="slip-body">
+              <div className="stack" style={{ gap: "1rem" }}>
+                <dl className="slip-fields">
+                  <div>
+                    <dt>Item</dt>
+                    <dd>{item?.name ?? "Returned item"}</dd>
+                  </div>
+                  <div>
+                    <dt>Reason</dt>
+                    <dd>{reasonLabel(r.reason_code)}</dd>
+                  </div>
+                  <div>
+                    <dt>Refund amount</dt>
+                    <dd className="amount">{money(r.amount)}</dd>
+                  </div>
+                  <div>
+                    <dt>Filed</dt>
+                    <dd>{dateTime(r.created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt>Status code</dt>
+                    <dd className="mono">{r.status}</dd>
+                  </div>
+                  {r.refund_state !== "none" && (
+                    <div>
+                      <dt>Refund</dt>
+                      <dd className="mono">{r.refund_state}</dd>
+                    </div>
+                  )}
+                </dl>
+                <p>{s.blurb}</p>
+              </div>
+              <span
+                key={`${r.status}-${r.refund_state}`}
+                className={`stamp ${s.tone === "neutral" ? "" : s.tone}`}
+                role="status"
+              >
+                {s.label}
+              </span>
+            </div>
+            <div className="perf" aria-hidden="true" />
+            <div className="slip-foot stack">
+              <ol className="track" aria-label="Return progress">
+                {track.map((t, i) => (
+                  <li
+                    key={t}
+                    className={
+                      finished && i <= stage
+                        ? "done"
+                        : i < stage
+                          ? "done"
+                          : i === stage
+                            ? "now"
+                            : undefined
+                    }
+                    aria-current={!finished && i === stage ? "step" : undefined}
+                  >
+                    {t}
+                  </li>
+                ))}
+              </ol>
+              {!finished && <AutoRefresh everyMs={refreshMs} />}
+            </div>
+          </article>
 
-      {r.status === "denied" && <FileAppeal returnId={id} />}
+          {r.decision_reason && (
+            <section className="panel">
+              <h2>Why this decision</h2>
+              <p className="explanation">{r.decision_reason}</p>
+            </section>
+          )}
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {r.photo_urls.map((u) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={u}
-            src={u}
-            alt="return"
-            style={{ width: 200, borderRadius: 8 }}
-          />
-        ))}
+          {r.status === "denied" && <FileAppeal returnId={id} />}
+        </div>
+
+        <aside className="stack" style={{ gap: "1.25rem" }}>
+          <section className="panel">
+            <h2>Your photo</h2>
+            <div className="evidence">
+              {r.photo_urls.map((u) => (
+                <a key={u} href={u} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="Photo you uploaded with this return" />
+                </a>
+              ))}
+            </div>
+          </section>
+          <section className="panel">
+            <h2>What you told us</h2>
+            <p className={r.reason_text ? undefined : "muted"}>
+              {r.reason_text || "No extra details were added."}
+            </p>
+          </section>
+          {order && (
+            <Link href={`/orders/${order.id}`} className="btn secondary">
+              View order <span className="mono">#{caseNo(order.id)}</span>
+            </Link>
+          )}
+        </aside>
       </div>
-    </div>
+    </>
   );
 }

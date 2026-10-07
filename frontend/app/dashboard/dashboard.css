@@ -2,9 +2,11 @@
    never reaches /shop, /returns, /orders, or /checkout. Additive: reuses the
    existing --bg/--card/--border/--text/--muted/--accent tokens from
    globals.css, only adds new "d-" prefixed classes + status colors so it
-   can't collide with or override any shop styling. */
+   can't collide with or override any shop styling. Status colours are scoped
+   to .d-shell (not :root) so they never leak into the storefront after a
+   client-side navigation away from the dashboard. */
 
-:root {
+.d-shell {
   --ok: #34c98f;
   --ok-bg: rgba(52, 201, 143, 0.12);
   --warn: #f0b429;
@@ -175,7 +177,7 @@
 
 /* case id / mono chips */
 .d-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 12.5px;
 }
 .d-chip {
@@ -184,7 +186,7 @@
   padding: 0.15rem 0.5rem;
   border-radius: 0.4rem;
   background: var(--neutral-bg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 12px;
   color: var(--text);
 }
@@ -414,4 +416,18 @@
 .d-version {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* case detail: details + reasoning | actions + live trace.
+   minmax(0, ...) lets each column shrink below its widest content (long JSON
+   lines in the live trace), so the page never scrolls sideways. */
+.d-case-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .d-case-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

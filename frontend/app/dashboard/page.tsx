@@ -16,6 +16,14 @@ type Row = {
   item: string;
 };
 
+/** Waiting time as the largest sensible unit: 45m, 5h, 3d. */
+function age(ms: number): string {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 60) return `${m}m`;
+  if (m < 48 * 60) return `${Math.round(m / 60)}h`;
+  return `${Math.round(m / 1440)}d`;
+}
+
 function decisionBadge(decision: string | null) {
   const cls =
     decision === "approve"
@@ -98,10 +106,7 @@ export default async function Queue({
                 <td className="num">${r.amount}</td>
                 <td>{decisionBadge(r.decision)}</td>
                 <td className="muted num">
-                  {Math.round(
-                    (renderedAt - new Date(r.created_at).getTime()) / 60000,
-                  )}
-                  m
+                  {age(renderedAt - new Date(r.created_at).getTime())}
                 </td>
                 <td className="muted" style={{ paddingRight: 16 }}>
                   {r.claimed_by ? (

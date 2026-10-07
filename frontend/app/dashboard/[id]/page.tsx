@@ -45,7 +45,7 @@ export default async function CaseDetail({
 
   const r = data.return;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20 }}>
+    <div className="d-case-grid">
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="d-head">
           <h1>Case #{id.slice(0, 8)}</h1>
