@@ -654,6 +654,17 @@ alerts), then the index at
 
 ---
 
+## Project showcase page
+
+`showcase/` is a static, one-page overview of the project for people who won't run
+it locally: what it does, the agent pipeline, the guardrails, real screenshots of
+the running system, verification results, and credits. It is plain HTML/CSS with
+no build step and no backend, so it can be hosted for free (for example on Vercel:
+import this repo, set **Root Directory** to `showcase`, framework preset **Other**).
+The screenshots in `showcase/assets/` were captured from a live local run.
+
+---
+
 ## Contributing
 
 - Before committing: `make lint` (CI runs the same on every push). For the

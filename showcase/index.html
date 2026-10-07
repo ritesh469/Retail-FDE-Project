@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReturnGuard — governed multi-agent AI for e-commerce returns</title>
+    <meta
+      name="description"
+      content="ReturnGuard reviews e-commerce return and refund requests with ten specialised AI agents. The AI suggests; people decide every refusal and every large refund. Built with LangGraph, FastAPI, Next.js, OPA, Keycloak and Docker."
+    />
+    <meta property="og:title" content="ReturnGuard — AI suggests, humans decide" />
+    <meta
+      property="og:description"
+      content="A governed multi-agent AI system that reviews e-commerce returns: ten specialised agents, policy-as-code guardrails, full traceability."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Martian+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap top-inner">
+        <a href="#" class="brand display"><span class="tag" aria-hidden="true"></span>ReturnGuard</a>
+        <nav aria-label="Sections">
+          <a href="#how">How it works</a>
+          <a href="#guardrails">Guardrails</a>
+          <a href="#screens">Screens</a>
+          <a href="#proof">Results</a>
+          <a href="#credits">Credits</a>
+        </nav>
+        <a class="btn" href="https://github.com/ritesh469/Retail-FDE-Project">View the code</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================================================ hero -->
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <p class="eyebrow">Governed multi-agent AI · e-commerce returns</p>
+          <h1 class="display">AI suggests.<br />People decide.</h1>
+          <p class="lede">
+            ReturnGuard reviews online-shop return and refund requests with ten specialised AI
+            agents. They check the order, the store policy, the photo and the customer&rsquo;s
+            history &mdash; but nothing is refused without a person, large refunds always go to a
+            human, and every decision can be traced to the exact model, prompt and policy that
+            produced it.
+          </p>
+          <div class="row">
+            <a class="btn lg" href="https://github.com/ritesh469/Retail-FDE-Project">View the code on GitHub</a>
+            <a class="btn ghost lg" href="#how">How it works</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img
+            src="assets/slip.webp"
+            alt="ReturnGuard's return status page: a yellow return slip for case #1D1B0E61 with a 'With a reviewer' stamp, a progress track and the AI-written explanation"
+            width="1280"
+            height="800"
+          />
+          <span class="stamp" aria-hidden="true">Human in the loop</span>
+          <figcaption>A customer&rsquo;s return, drawn as a return slip that updates live.</figcaption>
+        </figure>
+      </section>
+
+      <!-- shipping-label spec strip: real facts about the system -->
+      <section class="wrap" aria-label="Key facts">
+        <dl class="spec">
+          <div><dt>Agents</dt><dd>10 specialised steps</dd></div>
+          <div><dt>Automatic refusals</dt><dd>0 &mdash; impossible by design</dd></div>
+          <div><dt>Human sign-off line</dt><dd>Refunds over $250</dd></div>
+          <div><dt>Runs on</dt><dd>18 services, one laptop</dd></div>
+        </dl>
+      </section>
+
+      <!-- ============================================================ problem -->
+      <section class="wrap band" aria-labelledby="problem">
+        <div class="two">
+          <div>
+            <p class="eyebrow">The problem</p>
+            <h2 id="problem" class="display">Every return needs a judgement call.</h2>
+          </div>
+          <div class="prose">
+            <p>
+              &ldquo;It arrived broken.&rdquo; &ldquo;Wrong item.&rdquo; &ldquo;Changed my
+              mind.&rdquo; Each request means checking the order, the return policy, the photo and
+              the customer&rsquo;s history. Some are fraud: AI-generated damage photos, serial
+              returners, rings of accounts sharing an address or card.
+            </p>
+            <p>
+              Doing it all by hand is slow and expensive. Handing it all to a model is reckless &mdash;
+              a model that can silently issue refunds can be talked into issuing refunds.
+              ReturnGuard is the middle path: <strong>agents do the legwork, and the system only acts
+              inside limits a human set.</strong>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ pipeline -->
+      <section id="how" class="wrap" aria-labelledby="how-title">
+        <p class="eyebrow">How a return is reviewed</p>
+        <h2 id="how-title" class="display">Ten steps, each one logged.</h2>
+        <p class="sub">
+          Every step records which model ran, a hash of its input, its output, confidence, tokens,
+          cost and latency &mdash; and streams live to the reviewer&rsquo;s screen.
+        </p>
+        <ol class="pipeline">
+          <li><b>Data-quality gate</b><span>Not enough evidence? Straight to a human &mdash; never guess.</span><em>fast LLM</em></li>
+          <li><b>Planner</b><span>Decides which checks this case actually needs.</span><em>fast LLM</em></li>
+          <li><b>Intake</b><span>Does the story match the reason and the amount?</span><em>fast LLM + order tool</em></li>
+          <li><b>Policy</b><span>Retrieves the current versioned policy text and judges eligibility. Dates and thresholds are computed in code.</span><em>reasoning LLM + RAG</em></li>
+          <li><b>Image</b><span>Photo vs. catalogue image, plus an AI-generated-photo detector. Signals only.</span><em>local CLIP + detector</em></li>
+          <li><b>Behaviour</b><span>Account risk score and shared-fingerprint fraud-ring check.</span><em>local ML model + LLM</em></li>
+          <li><b>Decision</b><span>Combines every signal: approve, deny or escalate.</span><em>reasoning LLM</em></li>
+          <li><b>Critic</b><span>Second opinion. Can veto to a human &mdash; never to a different automatic outcome.</span><em>careful LLM</em></li>
+          <li><b>Explanation</b><span>Plain-language reason for the customer and the audit trail.</span><em>careful LLM</em></li>
+          <li class="gate"><b>Governance gate</b><span>The only step that can finalise anything. Rules live in Open Policy Agent, not in prompts.</span><em>policy-as-code</em></li>
+        </ol>
+      </section>
+
+      <!-- ============================================================ guardrails -->
+      <section id="guardrails" class="wrap band" aria-labelledby="guard-title">
+        <p class="eyebrow">Guardrails</p>
+        <h2 id="guard-title" class="display">Rules no prompt can switch off.</h2>
+        <div class="rules">
+          <article>
+            <h3>No automatic refusals</h3>
+            <p>A proposed denial always becomes an escalation. Only a person&rsquo;s explicit confirmation can deny &mdash; even at 96% model confidence.</p>
+          </article>
+          <article>
+            <h3>Bounded auto-approval</h3>
+            <p>Risk below 0.30, confidence at least 0.80, no Critic veto, and under $250 &mdash; all at once, or a human decides.</p>
+          </article>
+          <article>
+            <h3>Kill switch</h3>
+            <p>One admin control sends every case to a person, checked fresh on every case &mdash; no restart.</p>
+          </article>
+          <article>
+            <h3>Least privilege per agent</h3>
+            <p>Each agent has its own identity, tool grant, model grant and budget. The image agent can call zero tools &mdash; proven by trying.</p>
+          </article>
+          <article>
+            <h3>Appeals to someone else</h3>
+            <p>A declined customer can appeal; it routes to a different reviewer, and the original one gets a hard rejection if they try.</p>
+          </article>
+          <article>
+            <h3>Tamper-evident record</h3>
+            <p>Every human and agent action lands in a hash-chained audit log that can be re-verified at any time.</p>
+          </article>
+        </div>
+
+        <h3 class="ladder-title">Autonomy is earned, one level at a time</h3>
+        <ol class="ladder">
+          <li><b>Shadow</b><span>AI runs and is logged; people decide everything. Default.</span></li>
+          <li><b>Suggest</b><span>Reviewer&rsquo;s screen opens pre-filled with the AI&rsquo;s proposal.</span></li>
+          <li><b>Assist</b><span>Auto-approves low-risk cases; 10% still sampled for a human check.</span></li>
+          <li><b>Auto</b><span>Auto-approves low-risk cases without sampling.</span></li>
+        </ol>
+      </section>
+
+      <!-- ============================================================ screens -->
+      <section id="screens" class="wrap" aria-labelledby="screens-title">
+        <p class="eyebrow">Screens</p>
+        <h2 id="screens-title" class="display">From the shop to the review console.</h2>
+        <p class="sub">Real screenshots of the system running locally.</p>
+        <div class="gallery">
+          <figure>
+            <a href="assets/shop.webp"><img src="assets/shop.webp" alt="Shop home page with product grid and a four-step explanation of how returns are handled" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Shop.</b> A real catalogue; the home page explains how returns are reviewed.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/product.webp"><img src="assets/product.webp" alt="Product page for the Terra Ceramic Mug Set with price, stock badge, quantity stepper and a note on how returns work" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Product.</b> Every listing explains the return guarantee.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/wizard.webp"><img src="assets/wizard.webp" alt="Return wizard, step 1: reason cards such as Damaged, Defective and Not as described" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Start a return.</b> Reason, details, then a photo of the item.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/slip.webp"><img src="assets/slip.webp" alt="Customer's return slip for case #1D1B0E61 with a 'With a reviewer' stamp, progress track and the AI-written explanation" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>The return slip.</b> Updates live; the explanation is written by the Explanation agent for this case.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/case.webp"><img src="assets/case.webp" alt="Reviewer case page: status, agent proposal, per-agent reasoning with model, confidence, cost and latency, actions, and the live trace" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Case review.</b> Every agent&rsquo;s model, confidence, cost and latency, plus the live trace.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/queue.webp"><img src="assets/queue.webp" alt="Dark reviewer console: queue of escalated cases with item, reason, amount and age" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Reviewer queue.</b> Everything the agents couldn&rsquo;t safely clear.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/analytics.webp"><img src="assets/analytics.webp" alt="Analytics: hours and dollars saved versus an all-human baseline, cost per decision, per-model spend and agent health" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Analytics.</b> Live numbers: cost per decision, time to decision, agent health.</figcaption>
+          </figure>
+          <figure>
+            <a href="assets/governance.webp"><img src="assets/governance.webp" alt="Governance page: automation level, kill switch and thresholds per scope" loading="lazy" width="1280" height="800" /></a>
+            <figcaption><b>Governance.</b> Automation level, kill switch and thresholds.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ architecture -->
+      <section class="wrap band" aria-labelledby="arch-title">
+        <div class="two">
+          <div>
+            <p class="eyebrow">Architecture</p>
+            <h2 id="arch-title" class="display">Everything a real deployment needs.</h2>
+            <ul class="stack">
+              <li><b>Agents</b> LangGraph pipeline with a Postgres checkpointer</li>
+              <li><b>LLM gateway</b> Bifrost: Groq first, OpenAI fallback, per-agent keys and budgets</li>
+              <li><b>Tool governance</b> IBM ContextForge (MCP), one virtual server per agent</li>
+              <li><b>Policy</b> Open Policy Agent, with unit tests, failing closed</li>
+              <li><b>Identity</b> Keycloak for people and one service account per agent</li>
+              <li><b>Data</b> Postgres, Qdrant (policy RAG), MinIO, Redis, Vault</li>
+              <li><b>Local ML</b> CLIP, an AI-image detector, a calibrated gradient-boosted risk model</li>
+              <li><b>Observability</b> Langfuse traces, Prometheus, Grafana, alert rules</li>
+              <li><b>App</b> FastAPI backend, Next.js shop and reviewer console</li>
+            </ul>
+          </div>
+          <figure class="arch">
+            <a href="assets/architecture.webp"><img src="assets/architecture.webp" alt="System architecture diagram: client, Next.js frontend, FastAPI backend, LangGraph agent pipeline, supporting AI infrastructure, observability and storage layers" loading="lazy" width="1222" height="1287" /></a>
+            <figcaption>System architecture (diagram from the original project materials).</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ proof -->
+      <section id="proof" class="wrap" aria-labelledby="proof-title">
+        <p class="eyebrow">Results</p>
+        <h2 id="proof-title" class="display">Verified against the running system.</h2>
+        <p class="sub">
+          No mocked tests: plain scripts drive the live stack over HTTP and WebSocket and check the real
+          database, storage and audit log. A full ten-agent review of a real return cost about
+          <strong>$0.0012</strong> in model calls.
+        </p>
+        <table class="proof">
+          <thead>
+            <tr><th>Check</th><th>What it proves on the live system</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>verify_m1</td><td>All 18 services healthy; database, cache, vector store, object storage, vault, LLM gateway, MCP gateway and policy engine reachable; schema at the latest migration</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m2</td><td>Real Keycloak sign-up and token, an order that stores only the card&rsquo;s last 4 digits, a return whose photo really lands in object storage</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m2_frontend</td><td>The shop and its OpenID Connect (PKCE) login flow</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m3</td><td>A real LLM call through the gateway, with tokens, cost and latency logged and a live trace replayable over WebSocket</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m3_dlq</td><td>A case that crashes three times lands in a visible failed record and goes to a human &mdash; never retried forever</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m4</td><td>The full agent graph: every step logged, policy retrieved from the vector store, tools called through the MCP gateway, the image agent exposed zero tools, the gate decided via OPA, no automatic denial</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_audit_chain</td><td>Every audit-log hash recomputes; the chain is unbroken</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_security</td><td>Prompt injection in the return text and inside an image cannot escalate privileges or force an approval; the image agent is denied every tool</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m5</td><td>Reviewer claim, deny-with-confirmation, override logged, request-info round trip, refund settlement</td><td class="pass">PASS</td></tr>
+            <tr><td>verify_m6</td><td>The README&rsquo;s claims, URLs and commands hold against the running system</td><td class="pass">PASS</td></tr>
+          </tbody>
+        </table>
+        <div class="metrics">
+          <div>
+            <h3>Fraud-risk model</h3>
+            <p class="muted">HistGradientBoosting + isotonic calibration, on a synthetic dataset with injected fraud patterns (test set 1,360 cases).</p>
+            <dl class="kv">
+              <div><dt>ROC-AUC</dt><dd>0.807</dd></div>
+              <div><dt>PR-AUC</dt><dd>0.613</dd></div>
+              <div><dt>F1 @ 0.5</dt><dd>0.575</dd></div>
+              <div><dt>Brier</dt><dd>0.157</dd></div>
+            </dl>
+          </div>
+          <div>
+            <h3>AI-photo detector bake-off</h3>
+            <p class="muted">Three real detectors compared on a small labelled sample (12 images); the best was kept.</p>
+            <dl class="kv">
+              <div><dt>haywoodsloan/ai-image-detector-deploy</dt><dd>91.7%</dd></div>
+              <div><dt>Organika/sdxl-detector</dt><dd>75.0%</dd></div>
+              <div><dt>umm-maybe/AI-image-detector</dt><dd>50.0%</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ credits -->
+      <section id="credits" class="wrap band" aria-labelledby="credits-title">
+        <div class="two">
+          <div>
+            <p class="eyebrow">Credits</p>
+            <h2 id="credits-title" class="display">Who built what.</h2>
+            <p class="prose">
+              The ReturnGuard system &mdash; its design, agent pipeline, backend, infrastructure and
+              scenario catalogue &mdash; was built by <strong>Sudhanshu Gusain</strong>
+              (<a class="link" href="https://github.com/data-guru0/Retail-FDE-Project-">data-guru0/Retail-FDE-Project-</a>).
+              The full history is kept in the repository.
+            </p>
+          </div>
+          <div>
+            <h3 class="mine">My contribution &mdash; Ritesh</h3>
+            <ul class="checks">
+              <li><b>Brought it up on Windows from scratch</b> and fixed every blocker in the 18-service stack.</li>
+              <li><b>Replaced a withdrawn dependency</b> &mdash; MinIO&rsquo;s official images were removed; evaluated and switched to a maintained fork.</li>
+              <li><b>Closed a network exposure</b> &mdash; all 15 service ports, including the database and secrets vault, were reachable from the Wi-Fi; now loopback-only.</li>
+              <li><b>Diagnosed a 30-second stall</b> on every database connection (IPv6 <code>localhost</code> on Windows) and fixed it.</li>
+              <li><b>Added quality gates</b> &mdash; lint, type-check, policy tests and secret scanning in CI and pre-commit.</li>
+              <li><b>Redesigned the storefront UI/UX</b> &mdash; the return-slip status page, live updates, accessible forms, and the dark reviewer console.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap foot-inner">
+        <span class="brand display"><span class="tag" aria-hidden="true"></span>ReturnGuard</span>
+        <span>Runs locally with Docker Compose &mdash; see the README to try it.</span>
+        <a class="link" href="https://github.com/ritesh469/Retail-FDE-Project">GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>
